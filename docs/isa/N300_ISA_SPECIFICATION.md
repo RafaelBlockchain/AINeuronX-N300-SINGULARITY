@@ -1142,6 +1142,807 @@ The N300 Golden Emulator will serve as the executable architectural reference.
 
 END OF SECTIONS 1 AND 2
 
+Section 6 — VECTOR Instructions
+
+Document: N300 ISA Specification
+Section: 6
+Version: 0.2
+Status: DRAFT / PROPOSED — NOT FROZEN
+Architecture: N300 SINGULARITY
+
+---
+
+6.1 Purpose
+
+The VECTOR instruction family provides data-parallel computation across multiple elements using a single architectural instruction.
+
+Its primary objectives are:
+
+- High-throughput parallel data processing.
+- AI tensor preprocessing and postprocessing.
+- Element-wise arithmetic.
+- Vectorized memory operations.
+- Mixed-precision computation.
+- Masked execution.
+- Reduction operations.
+- Efficient interaction with TENSOR and MEMORY execution domains.
+
+The VECTOR domain is designed to complement specialized matrix and tensor engines rather than replace them.
+
+6.2 Vector Register Model
+
+The preliminary architectural model proposes:
+
+- 32 vector registers.
+- Register identifiers V0–V31.
+- 512 bits per vector register.
+- Independent vector state per execution context.
+
+These parameters are preliminary and remain subject to architectural and physical validation.
+
+A vector register is logically composed of multiple elements.
+
+The number of elements depends on the selected element width.
+
+Element width| Elements per 512-bit register
+8 bits| 64
+16 bits| 32
+32 bits| 16
+64 bits| 8
+
+The architecture must support multiple element widths without requiring a separate register file for every precision.
+
+6.3 Vector Length and Execution Configuration
+
+Vector execution uses an architectural vector configuration.
+
+The proposed configuration contains:
+
+- "VL": active vector length.
+- "SEW": selected standard element width.
+- "LMUL": logical vector grouping multiplier.
+- "MASK": optional element execution mask.
+
+The exact encoding and register-grouping rules remain open.
+
+The active vector length must never exceed the implementation-supported capacity of the selected configuration.
+
+The architecture may support shorter vector lengths to enable scalable execution across different N300 implementations.
+
+6.4 Vector Configuration Instructions
+
+Mnemonic| Description
+"VSETVL"| Configure active vector length
+"VSETSEW"| Configure standard element width
+"VSETLMUL"| Configure logical vector grouping
+"VGETVL"| Read active vector length
+"VGETSEW"| Read active element width
+
+The final ISA may consolidate some configuration operations into a single instruction.
+
+The architectural behavior must remain deterministic.
+
+6.5 Vector Arithmetic Instructions
+
+The following instructions define the proposed base arithmetic operations.
+
+Mnemonic| Operation| Description
+"VADD"| "vd[i] = vs1[i] + vs2[i]"| Element-wise addition
+"VSUB"| "vd[i] = vs1[i] - vs2[i]"| Element-wise subtraction
+"VMUL"| "vd[i] = vs1[i] × vs2[i]"| Element-wise multiplication
+"VDIV"| "vd[i] = vs1[i] / vs2[i]"| Element-wise division
+"VMIN"| Minimum of two elements| Element-wise minimum
+"VMAX"| Maximum of two elements| Element-wise maximum
+"VABS"| Absolute value| Element-wise absolute value
+"VNEG"| Negation| Element-wise negation
+
+The selected element type determines the arithmetic interpretation.
+
+Integer operations use the specified signed or unsigned interpretation.
+
+Floating-point operations follow the selected floating-point format and rounding mode.
+
+Division is an optional capability until its implementation cost and exact exceptional behavior are defined.
+
+6.6 Vector Logical Instructions
+
+Mnemonic| Description
+"VAND"| Element-wise bitwise AND
+"VOR"| Element-wise bitwise OR
+"VXOR"| Element-wise bitwise XOR
+"VNOT"| Element-wise bitwise inversion
+"VSLL"| Element-wise logical left shift
+"VSRL"| Element-wise logical right shift
+"VSRA"| Element-wise arithmetic right shift
+
+Logical operations operate on the bit representation of each element.
+
+Shift semantics must be defined according to the element width.
+
+6.7 Vector Floating-Point Instructions
+
+The N300 VECTOR domain proposes support for:
+
+- FP32
+- BF16
+- FP16
+- FP8
+- FP6
+- FP4
+
+These formats are architectural targets, not proof that every format has already been implemented in RTL.
+
+Proposed instructions:
+
+Mnemonic| Description
+"VFADD"| Floating-point vector addition
+"VFSUB"| Floating-point vector subtraction
+"VFMUL"| Floating-point vector multiplication
+"VFDIV"| Floating-point vector division
+"VFSQRT"| Floating-point square root
+"VFMIN"| Floating-point minimum
+"VFMAX"| Floating-point maximum
+"VFABS"| Floating-point absolute value
+"VFNEG"| Floating-point negation
+
+The selected format must be explicit in the instruction or execution configuration.
+
+The ISA must not silently reinterpret one floating-point format as another.
+
+6.8 Fused Multiply-Add
+
+The VECTOR domain proposes fused multiply-add support.
+
+Mnemonic| Operation
+"VFMA"| "vd[i] = vs1[i] × vs2[i] + vs3[i]"
+"VFMS"| "vd[i] = vs1[i] × vs2[i] - vs3[i]"
+
+Fused operations must perform multiplication and addition with a single final rounding operation where the selected numerical format defines IEEE-style fused semantics.
+
+The exact support matrix for each floating-point format remains open.
+
+6.9 Vector Comparison Instructions
+
+Mnemonic| Description
+"VCEQ"| Element-wise equality
+"VCNE"| Element-wise inequality
+"VCLT"| Element-wise less-than
+"VCLE"| Element-wise less-than or equal
+"VCGT"| Element-wise greater-than
+"VCGE"| Element-wise greater-than or equal
+
+Comparison results produce vector predicates.
+
+The predicate representation and storage layout must be specified in the architectural predicate model.
+
+Floating-point comparisons must define behavior for NaNs, signed zeros and unordered comparisons.
+
+6.10 Masked Vector Execution
+
+Masked execution allows individual vector elements to be enabled or disabled.
+
+The proposed instruction model supports:
+
+- Execution with all active elements.
+- Execution using an explicit predicate mask.
+- Masked loads and stores.
+- Masked arithmetic.
+- Masked comparisons.
+
+For a masked operation:
+
+- Enabled elements execute normally.
+- Disabled elements follow the instruction's defined inactive-element policy.
+- Inactive elements must not cause unintended memory accesses.
+- Mask behavior must remain deterministic.
+
+The final ISA must explicitly define whether inactive destination elements are preserved, cleared or assigned another specified value.
+
+6.11 Vector Reduction Instructions
+
+Reduction operations combine multiple vector elements into a scalar or vector result.
+
+Mnemonic| Description
+"VREDUCE_ADD"| Sum of active elements
+"VREDUCE_MUL"| Product of active elements
+"VREDUCE_MIN"| Minimum active element
+"VREDUCE_MAX"| Maximum active element
+"VREDUCE_AND"| Bitwise AND reduction
+"VREDUCE_OR"| Bitwise OR reduction
+"VREDUCE_XOR"| Bitwise XOR reduction
+
+Floating-point reductions require an explicit reproducibility policy.
+
+The architecture must distinguish:
+
+- Deterministic reduction order.
+- Implementation-defined parallel reduction order.
+- Numerically reproducible reduction modes, where supported.
+
+The selected policy affects numerical reproducibility and performance.
+
+6.12 Vector Memory Instructions
+
+The VECTOR domain works with the MEMORY domain to support data movement.
+
+Proposed operations:
+
+Mnemonic| Description
+"VLOAD"| Load vector elements from memory
+"VSTORE"| Store vector elements to memory
+"VGATHER"| Load elements using vector indices
+"VSCATTER"| Store elements using vector indices
+"VLOAD_STRIDED"| Load elements using a stride
+"VSTORE_STRIDED"| Store elements using a stride
+
+Memory instructions must define:
+
+- Element size.
+- Alignment requirements.
+- Address generation.
+- Mask behavior.
+- Fault handling.
+- Memory ordering.
+- Interaction with DMA.
+
+Large tensor transfers should use specialized MEMORY and DMA mechanisms whenever they offer better throughput.
+
+6.13 Vector Conversion Instructions
+
+Mixed-precision workloads require explicit conversion operations.
+
+Proposed conversion instructions:
+
+Mnemonic| Description
+"VFCVT"| Floating-point format conversion
+"VICVT"| Integer conversion
+"VF2I"| Floating-point to integer
+"VI2F"| Integer to floating-point
+"VSEXT"| Vector sign extension
+"VZEXT"| Vector zero extension
+"VNARROW"| Narrowing conversion
+"VWIDEN"| Widening conversion
+
+Conversion instructions must define:
+
+- Source format.
+- Destination format.
+- Rounding mode.
+- Saturation behavior, if applicable.
+- NaN and infinity handling.
+- Overflow and underflow behavior.
+
+Conversions must not silently discard precision without an explicit architectural rule.
+
+6.14 Vector Permutation and Data Rearrangement
+
+AI workloads frequently require rearranging data before matrix and tensor operations.
+
+Proposed instructions:
+
+Mnemonic| Description
+"VSHUFFLE"| Rearrange vector elements
+"VSLIDEUP"| Shift elements toward higher indices
+"VSLIDEDOWN"| Shift elements toward lower indices
+"VREVERSE"| Reverse element order
+"VZIP"| Interleave two vectors
+"VUNZIP"| Separate interleaved vectors
+"VCOMPRESS"| Compact selected elements
+"VEXPAND"| Expand compacted elements using a mask
+
+The architecture may implement some permutation operations through specialized hardware rather than dedicated execution pipelines.
+
+6.15 Vector Context and Isolation
+
+Each execution context must maintain an independent architectural vector state.
+
+The implementation must protect:
+
+- Vector registers.
+- Vector configuration.
+- Predicate state.
+- Pending vector operations.
+- Vector memory-operation metadata.
+
+Context switching must not expose another agent's vector state.
+
+The exact save/restore strategy is a microarchitectural decision.
+
+6.16 Interaction with TENSOR and MATRIX Engines
+
+The VECTOR domain provides complementary processing capabilities.
+
+Typical workloads include:
+
+- Activation functions.
+- Normalization.
+- Element-wise transformations.
+- Attention preprocessing and postprocessing.
+- Quantization and dequantization.
+- Sparse metadata processing.
+- Tensor layout transformations.
+- Small reductions.
+- Data preparation for matrix engines.
+
+Large matrix multiplication and high-density tensor operations should be routed to specialized TENSOR or MATRIX engines where appropriate.
+
+The compiler and runtime should select the execution domain based on operation characteristics, available resources and performance estimates.
+
+6.17 Performance Objectives
+
+The VECTOR domain should target:
+
+- High elements-per-cycle throughput.
+- Efficient mixed-precision execution.
+- Low-overhead vector configuration.
+- Masked execution without unnecessary work.
+- Efficient load/store integration.
+- High bandwidth between vector and tensor engines.
+- Reduced data movement.
+- Efficient pipeline utilization.
+
+No fixed throughput or clock target is frozen in this section.
+
+Performance must be measured through architectural simulation, RTL verification and physical implementation.
+
+6.18 Open Architectural Decisions
+
+The following decisions remain open:
+
+1. Final vector register width.
+2. Final vector register count.
+3. Whether 512-bit registers remain the baseline.
+4. Final SEW and LMUL definitions.
+5. Predicate register count and encoding.
+6. Supported rounding modes.
+7. Exact FP6 and FP4 formats.
+8. Saturation and exception semantics.
+9. Deterministic floating-point reduction requirements.
+10. Vector memory fault and ordering model.
+11. Exact instruction encoding and opcode allocation.
+12. Hardware division and square-root implementation strategy.
+
+6.19 Section 6 Acceptance Criteria
+
+Section 6 may only be frozen after:
+
+- Vector register architecture is defined.
+- Vector configuration semantics are unambiguous.
+- Element widths and numerical formats are specified.
+- Masking and predicate behavior are defined.
+- Floating-point semantics are documented.
+- Memory interactions are specified.
+- A vector golden emulator exists.
+- Directed and randomized tests pass.
+- RTL matches the architectural reference model.
+- Compiler and runtime mappings are validated.
+- Performance is measured against representative AI workloads.
+
+Current status: DRAFT / PROPOSED — NOT FROZEN.
+
+No opcode assignments are authorized by this section.
+
+---
+
+End of Section 6 — VECTOR Instructions
+
+Section 7 — TENSOR Instructions
+
+Document: N300 ISA Specification
+Section: 7
+Version: 0.2
+Status: DRAFT / PROPOSED — NOT FROZEN
+Architecture: N300 SINGULARITY
+
+---
+
+7.1 Purpose
+
+The TENSOR instruction family defines the architectural interface for high-throughput tensor and matrix computation.
+
+Its primary objectives are:
+
+- High-performance matrix multiplication.
+- Multiply-accumulate operations.
+- Mixed-precision AI computation.
+- Dense and sparse tensor processing.
+- Transformer acceleration.
+- Attention computation.
+- Mixture-of-Experts (MoE) workloads.
+- Quantization-aware computation.
+- Efficient interaction with VECTOR, MEMORY and CONCURRENT execution domains.
+
+The TENSOR domain is the primary architectural interface for specialized AI compute engines.
+
+7.2 Tensor Execution Model
+
+Tensor instructions operate on multidimensional data structures.
+
+The architectural model supports:
+
+- One-dimensional vectors.
+- Two-dimensional matrices.
+- Multidimensional tensors.
+- Block-based matrix operations.
+- Tiled tensor operations.
+- Sparse tensor representations.
+
+Tensor operations may execute through specialized Matrix Engines, Sparse Engines, Attention Engines or other dedicated execution resources.
+
+The ISA defines architectural behavior, not the physical implementation of each engine.
+
+7.3 Tensor Data Types and Precision
+
+The N300 architecture proposes support for the following numerical formats:
+
+Format| Proposed role
+FP32| High-precision computation
+BF16| Training and mixed-precision AI
+FP16| General AI computation
+FP8| High-throughput AI inference and training
+FP6| Aggressive bandwidth and compute optimization
+FP4| Low-bit inference
+INT8| Quantized inference
+INT4| High-density quantized inference
+INT2| Extreme quantization
+Ternary| Experimental low-bit computation
+
+Support for each format must be evaluated independently.
+
+The ISA must explicitly define:
+
+- Input format.
+- Accumulator format.
+- Output format.
+- Rounding behavior.
+- Saturation behavior.
+- Overflow handling.
+- Exceptional-value behavior, where applicable.
+
+Ternary computation remains an experimental capability until its encoding, arithmetic semantics and implementation advantages are demonstrated.
+
+7.4 Matrix Multiply Instructions
+
+The base tensor instruction family includes matrix multiplication.
+
+Mnemonic| Description
+"TMATMUL"| General matrix multiplication
+"TMATMUL_ACC"| Matrix multiplication with accumulator update
+"TMATMUL_BIAS"| Matrix multiplication with bias
+"TMATMUL_RELU"| Matrix multiplication with ReLU fusion
+"TMATMUL_GELU"| Matrix multiplication with GELU fusion
+
+The mathematical operation is based on:
+
+[
+C_{M \times N} =
+A_{M \times K}
+\times
+B_{K \times N}
+]
+
+The architecture must support tiled execution to avoid requiring complete matrices to reside in local registers.
+
+Fusion operations must preserve the numerical behavior specified by their architectural definitions.
+
+The availability of fused activations may be implemented through specialized hardware or compiler/runtime transformations.
+
+7.5 Matrix Multiply-Accumulate
+
+The architecture proposes a dedicated matrix multiply-accumulate operation.
+
+Mnemonic| Description
+"TMMA"| Matrix multiply-accumulate
+
+The conceptual operation is:
+
+[
+D = A \times B + C
+]
+
+The accumulator format may be wider than the input format.
+
+Proposed accumulation targets include:
+
+- FP32 accumulation.
+- FP16 accumulation where explicitly supported.
+- BF16 input with FP32 accumulation.
+- FP8 input with FP16 or FP32 accumulation.
+- INT8 input with wider integer accumulation.
+- INT4 and INT2 input with wider integer accumulation.
+
+The exact supported combinations must be defined in the numerical-format capability matrix.
+
+The ISA must distinguish fused arithmetic from separate multiplication and addition where rounding behavior differs.
+
+7.6 Tensor Tiling Instructions
+
+Large matrix operations require efficient tiling.
+
+Proposed operations:
+
+Mnemonic| Description
+"TILE_LOAD"| Load a tensor tile
+"TILE_STORE"| Store a tensor tile
+"TILE_MATMUL"| Execute matrix multiplication on tiles
+"TILE_ACCUM"| Accumulate partial tile results
+"TILE_CONFIG"| Configure tile dimensions and layout
+"TILE_SYNC"| Synchronize tile execution
+
+Tile dimensions, memory layout and execution parameters must be explicitly validated.
+
+The hardware may support multiple tile sizes.
+
+The final architecture must not assume that one tile size is optimal for every model or precision.
+
+Automatic tile selection belongs to the compiler/runtime and must use actual hardware capabilities.
+
+7.7 Accumulator Architecture
+
+The TENSOR domain requires dedicated accumulator resources.
+
+The architectural model must support:
+
+- Partial matrix products.
+- Accumulation across multiple tiles.
+- Wider accumulation than input precision.
+- Defined accumulator initialization.
+- Defined accumulator update semantics.
+- Defined completion and visibility rules.
+
+Accumulator capacity and physical register organization remain open.
+
+The implementation must prevent unintended loss of precision during partial accumulation.
+
+7.8 Sparse Tensor Instructions
+
+Sparse computation is essential for efficient execution of models with structured or unstructured sparsity.
+
+Proposed instructions:
+
+Mnemonic| Description
+"TSPARSE_MATMUL"| Sparse matrix multiplication
+"TSPARSE_ACCUM"| Sparse accumulation
+"TSPARSE_LOAD"| Load sparse data and metadata
+"TSPARSE_DECODE"| Decode sparse representation
+"TSPARSE_COMPRESS"| Compress sparse values
+"TSPARSE_EXPAND"| Expand sparse representation
+
+The architecture should evaluate support for:
+
+- Structured sparsity.
+- Block sparsity.
+- Unstructured sparsity.
+- Compressed sparse representations.
+- Dynamic sparsity.
+
+Sparse execution must account for metadata overhead and irregular memory access.
+
+A sparse operation must not be assumed to be faster than dense execution without measured evidence.
+
+7.9 Mixture-of-Experts Instructions
+
+N300 proposes specialized support for Mixture-of-Experts workloads.
+
+The architecture must efficiently support:
+
+- Expert selection.
+- Token routing.
+- Expert dispatch.
+- Expert-specific matrix operations.
+- Token aggregation.
+- Load balancing.
+- Expert execution synchronization.
+
+Proposed instructions:
+
+Mnemonic| Description
+"TMOE_ROUTE"| Route tokens to experts
+"TMOE_DISPATCH"| Dispatch token blocks
+"TMOE_EXPERT_MATMUL"| Execute expert matrix operations
+"TMOE_AGGREGATE"| Aggregate expert outputs
+"TMOE_SYNC"| Synchronize expert execution
+
+The routing algorithm must be defined independently from the instruction encoding.
+
+The ISA should support flexible routing policies without hardcoding a specific model architecture.
+
+7.10 Attention Instructions
+
+The TENSOR domain proposes dedicated attention acceleration.
+
+Supported architectural targets include:
+
+- Multi-Head Attention (MHA).
+- Grouped-Query Attention (GQA).
+- Multi-Query Attention (MQA).
+- Multi-head Latent Attention (MLA).
+
+Proposed instructions:
+
+Mnemonic| Description
+"TATTN_QK"| Compute query-key products
+"TATTN_SCORE"| Generate attention scores
+"TATTN_SOFTMAX"| Perform attention softmax
+"TATTN_PV"| Multiply attention probabilities by values
+"TATTN_MHA"| Execute fused MHA operation
+"TATTN_GQA"| Execute GQA operation
+"TATTN_MLA"| Execute MLA-oriented operation
+
+These operations may be decomposed into smaller operations when a specialized fused engine is unavailable.
+
+The architecture must support streaming execution and avoid unnecessary movement of attention intermediates.
+
+7.11 Softmax and Normalization
+
+Transformer workloads require normalization operations.
+
+Proposed instructions:
+
+Mnemonic| Description
+"TSOFTMAX"| Softmax
+"TLOGSOFTMAX"| Log-softmax
+"TLAYERNORM"| Layer normalization
+"TRMSNORM"| Root Mean Square normalization
+"TREDUCE_SUM"| Tensor sum reduction
+"TREDUCE_MAX"| Tensor maximum reduction
+
+The numerical semantics must specify accumulation precision, approximation policy and reproducibility requirements.
+
+Approximate implementations must have documented error bounds.
+
+7.12 Activation Instructions
+
+The architecture proposes hardware-assisted or fused activation operations.
+
+Mnemonic| Description
+"TRELU"| ReLU
+"TGELU"| GELU
+"TSILU"| SiLU / Swish
+"TSIGMOID"| Sigmoid
+"TTANH"| Hyperbolic tangent
+"TSWISH"| Swish activation
+
+The implementation may use approximation algorithms.
+
+Each approximation must have a documented accuracy target and validation methodology.
+
+The ISA must distinguish exact architectural behavior from implementation-defined approximation where necessary.
+
+7.13 Quantization Instructions
+
+Quantization is a major component of AI performance and memory efficiency.
+
+Proposed operations:
+
+Mnemonic| Description
+"TQUANT"| Quantize tensor values
+"TDEQUANT"| Dequantize tensor values
+"TREQUANT"| Requantize between formats
+"TQUANT_SCALE"| Apply quantization scale
+"TQUANT_ZEROPOINT"| Apply zero-point adjustment
+"TPACK"| Pack low-bit values
+"TUNPACK"| Unpack low-bit values
+
+The architecture must define:
+
+- Scale representation.
+- Zero-point representation.
+- Per-tensor quantization.
+- Per-channel quantization.
+- Block quantization.
+- Rounding mode.
+- Saturation behavior.
+- Packed-data layout.
+
+Quantization metadata must remain compatible with the compiler and runtime.
+
+7.14 Tensor Memory and Data Movement
+
+Tensor execution must be coordinated with the MEMORY domain.
+
+The architecture proposes:
+
+- Local SRAM tile buffers.
+- Double buffering.
+- Asynchronous DMA transfers.
+- Prefetching.
+- Tensor layout transformation.
+- Distributed tensor movement.
+- Overlapped memory and compute execution.
+
+The ISA may expose high-level asynchronous operations while the microarchitecture manages physical transfers.
+
+Tensor instructions must define completion dependencies before results are consumed by another execution domain.
+
+7.15 Tensor Synchronization
+
+Tensor operations may execute asynchronously.
+
+The architecture requires explicit mechanisms for:
+
+- Operation completion.
+- Accumulator visibility.
+- Tile synchronization.
+- Dependency tracking.
+- Error reporting.
+- Cancellation where supported.
+
+The final synchronization interface must integrate with the CONCURRENT execution domain.
+
+7.16 Numerical Determinism
+
+Numerical determinism is a major architectural requirement.
+
+The N300 specification must distinguish:
+
+1. Bit-exact operations.
+2. IEEE-compatible operations.
+3. Architecturally defined approximate operations.
+4. Implementation-defined operations.
+
+For reproducible execution, the ISA must define the relevant numerical behavior, including accumulation and rounding policies.
+
+The Golden Emulator must become the reference for every frozen numerical instruction.
+
+7.17 Performance Objectives
+
+The TENSOR domain should prioritize:
+
+- Maximum matrix throughput.
+- High utilization of specialized compute engines.
+- Efficient mixed-precision execution.
+- High accumulator bandwidth.
+- Low data-movement overhead.
+- Sparse execution efficiency.
+- Attention and MoE acceleration.
+- Concurrent execution across independent tensor workloads.
+
+Performance targets must be validated using representative models, not theoretical peak throughput alone.
+
+7.18 Open Architectural Decisions
+
+The following items remain open:
+
+1. Supported matrix tile dimensions.
+2. Exact matrix accumulator formats.
+3. Accumulator capacity.
+4. FP6 and FP4 numerical definitions.
+5. INT2 arithmetic semantics.
+6. Ternary representation and execution model.
+7. Sparse metadata formats.
+8. MoE routing and dispatch semantics.
+9. MHA, GQA and MLA operation decomposition.
+10. Softmax and normalization accuracy targets.
+11. Quantization metadata layout.
+12. Tensor instruction encoding.
+13. Asynchronous completion semantics.
+14. Physical Matrix Engine organization.
+
+7.19 Section 7 Acceptance Criteria
+
+Section 7 may only be frozen after:
+
+- Tensor data types are fully specified.
+- Matrix instruction semantics are defined.
+- Accumulator behavior is documented.
+- Tiling rules are established.
+- Sparse execution semantics are defined.
+- Attention and MoE interfaces are validated.
+- Quantization behavior is specified.
+- Numerical reproducibility requirements are established.
+- A bit-exact Golden Emulator supports mandatory operations.
+- RTL matches the architectural reference model.
+- Representative AI workloads pass verification.
+- Roofline and physical performance measurements are available.
+
+Current status: DRAFT / PROPOSED — NOT FROZEN.
+
+No opcode assignments are authorized by this section.
+
+---
+
+End of Section 7 — TENSOR Instructions
 
 
 
