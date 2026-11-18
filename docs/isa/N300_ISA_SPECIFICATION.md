@@ -300,6 +300,266 @@ The architecture must distinguish between:
 - Execution timeout, where supported.
 - Hardware-reported execution failure.
 
+- 
+# 3. INSTRUCTION ENCODING FORMAT
+
+## 3.1 Encoding Objectives
+
+The N300 instruction encoding system must provide:
+
+- Efficient instruction decoding.
+- Consistent instruction classification.
+- Support for scalar, vector, and tensor operations.
+- Explicit operand identification.
+- Support for immediate values.
+- Future architectural extensibility.
+- Compatibility with compiler-generated instructions.
+- Support for agent and concurrent execution operations.
+
+The encoding system must balance decoding simplicity, instruction density, and architectural flexibility.
+
+## 3.2 Base Instruction Width
+
+The proposed base instruction width is 64 bits.
+
+A base instruction is represented as one 64-bit architectural instruction word.
+
+The 64-bit format is the initial encoding foundation, not a restriction on all future instructions.
+
+Instructions requiring additional information may use formally defined extension words.
+
+The exact extension mechanism remains OPEN until encoding analysis and decoder verification are completed.
+
+## 3.3 Proposed Base Encoding Structure
+
+The initial encoding model contains the following logical fields:
+
+| Field | Purpose |
+|---|---|
+| Opcode | Primary operation classification |
+| Subopcode | Operation identification |
+| Destination | Destination register or resource |
+| Source A | First source operand |
+| Source B | Second source operand |
+| Modifier | Operation modifiers |
+| Immediate | Embedded constant or offset |
+| Extension | Extension identification or reserved encoding space |
+
+These fields represent logical encoding responsibilities.
+
+Their final bit positions and widths have NOT been frozen.
+
+The encoding must be designed to avoid unnecessary decoder complexity and preserve sufficient space for future instruction families.
+
+## 3.4 Instruction Classification
+
+Every instruction must be identifiable by its architectural family.
+
+The proposed primary families are:
+
+- SCALAR
+- VECTOR
+- TENSOR
+- MEMORY
+- AGENT
+- CONCURRENT
+- CONTROL
+
+The decoder must determine the instruction family before applying family-specific operand interpretation.
+
+Reserved encodings must never silently acquire a different meaning in an existing ISA version.
+
+## 3.5 Operand Model
+
+Instructions may reference:
+
+- General-purpose registers.
+- Vector registers.
+- Predicate registers.
+- Immediate values.
+- Memory addresses.
+- Work descriptors.
+- Agent contexts.
+- Architectural control registers.
+
+Operand interpretation depends on the instruction family.
+
+An instruction must define the number, type, width, and access permissions of all its operands.
+
+## 3.6 Register Operand Encoding
+
+Register references must identify the architectural register class and register index.
+
+The encoding design must support the proposed vector register set:
+
+V0 through V31.
+
+The physical implementation of the register file is not prescribed by the encoding specification.
+
+The number and encoding of general-purpose and predicate registers remain OPEN.
+
+## 3.7 Immediate Values
+
+Immediate operands may be used for:
+
+- Constants.
+- Memory offsets.
+- Vector lengths.
+- Tensor dimensions.
+- Control modifiers.
+- Branch displacements.
+- Synchronization parameters.
+
+Immediate width and signedness must be explicitly defined for each instruction format.
+
+Larger constants and complex parameters may require extension words or memory-resident descriptors.
+
+## 3.8 Instruction Formats
+
+The ISA will use family-specific instruction formats.
+
+The proposed logical formats are:
+
+### A. Scalar Format
+
+For scalar arithmetic, logical operations, comparisons, and address calculations.
+
+### B. Vector Format
+
+For vector arithmetic, comparisons, masking, and data transformations.
+
+### C. Tensor Format
+
+For matrix and tensor operations, including references to tensor dimensions and numerical formats.
+
+### D. Memory Format
+
+For loads, stores, prefetch, memory synchronization, and DMA-related operations.
+
+### E. Agent Format
+
+For agent context management and execution control.
+
+### F. Concurrent Format
+
+For asynchronous submission, dependencies, events, barriers, and completion operations.
+
+### G. Control Format
+
+For branches, system control, exceptions, and architectural state management.
+
+These are architectural format categories. Their binary layouts remain OPEN.
+
+## 3.9 Extended Instructions
+
+The architecture may define extended instruction sequences.
+
+An extended instruction may contain:
+
+- A base instruction word.
+- One or more extension words.
+- Additional immediate data.
+- Extended operation parameters.
+
+The extension mechanism must define:
+
+1. How the decoder recognizes an extended instruction.
+2. How many extension words are consumed.
+3. How instruction boundaries are determined.
+4. How invalid or incomplete sequences are handled.
+5. How extensions interact with instruction fetching and control flow.
+
+No extension encoding is considered final in this version.
+
+## 3.10 Descriptor-Based Operations
+
+Complex operations should not require every parameter to be encoded directly in an instruction word.
+
+Tensor operations, DMA transfers, and multi-agent workloads may reference validated memory-resident descriptors.
+
+The base instruction identifies the operation and the descriptor or submission resource.
+
+Descriptor formats must be specified separately and must include validation, ownership, and error-reporting semantics.
+
+## 3.11 Reserved Encodings
+
+Reserved encoding values must be handled deterministically.
+
+Unless an extension explicitly defines otherwise:
+
+- Unsupported encodings must produce a defined illegal-instruction exception.
+- Reserved fields must have defined required values.
+- Implementations must not reinterpret reserved encodings as unrelated operations.
+- Future extensions must preserve existing instruction meanings.
+
+## 3.12 Decoder Requirements
+
+A conforming decoder must:
+
+- Identify instruction boundaries.
+- Classify instruction families.
+- Decode valid operands.
+- Validate required fields.
+- Detect unsupported instructions.
+- Identify extension sequences.
+- Report invalid encodings.
+- Preserve architectural execution semantics.
+
+Decoder implementations may differ internally.
+
+Their externally observable behavior must remain compliant.
+
+## 3.13 Encoding Compatibility
+
+Every published ISA version must identify:
+
+- Base encoding version.
+- Supported instruction families.
+- Supported extensions.
+- Required architectural features.
+- Optional architectural features.
+- Reserved encoding ranges.
+
+Future extensions must not break the interpretation of valid instructions in previously published versions.
+
+## 3.14 Encoding Validation
+
+Before encoding freeze, the N300 project must demonstrate:
+
+1. A complete encoding map.
+2. No unintended opcode collisions.
+3. Unambiguous instruction boundaries.
+4. Successful decoder implementation.
+5. Golden Emulator compatibility.
+6. Positive and negative decoding tests.
+7. Extension compatibility tests.
+8. Compiler integration tests.
+
+## 3.15 Open Encoding Decisions
+
+The following decisions remain OPEN:
+
+- Exact opcode width.
+- Exact subopcode width.
+- Register field widths.
+- Immediate field widths.
+- Instruction extension mechanism.
+- Variable-length versus fixed-length extended sequences.
+- Branch encoding.
+- Predicate encoding.
+- Tensor descriptor references.
+- Agent identifier representation.
+- Reserved encoding allocation.
+- Decoder complexity and implementation cost.
+
+No binary encoding is frozen by this document.
+
+---
+
+END OF SECTION 3
+
+
+
 Error reporting must provide sufficient information for software recovery and debugging.
 
 ## 2.11 Architectural Compliance
