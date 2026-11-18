@@ -851,7 +851,273 @@ The proposed 32 × 512-bit vector register architecture remains subject to imple
 
 END OF SECTION 4
 
+Section 5 — SCALAR Instructions
 
+Document: N300 ISA Specification
+Section: 5
+Version: 0.2
+Status: DRAFT / PROPOSED — NOT FROZEN
+Architecture: N300 SINGULARITY
+
+---
+
+5.1 Purpose
+
+The SCALAR instruction family provides general-purpose integer computation and control-value preparation.
+
+Its responsibilities include:
+
+- Integer arithmetic.
+- Bitwise logical operations.
+- Bit shifting and bit manipulation.
+- Signed and unsigned comparisons.
+- Register-to-register data movement.
+- Immediate-value operations.
+- Scalar address and index preparation for other execution domains.
+
+The SCALAR execution domain is designed to coordinate with VECTOR, TENSOR, MEMORY, AGENT and CONCURRENT execution domains.
+
+Scalar instructions must remain useful for traditional software workloads while supporting AI-native execution and autonomous scheduling.
+
+5.2 Architectural Register Interface
+
+Scalar instructions operate on the General-Purpose Register File (GPR).
+
+The following notation is used:
+
+Symbol| Meaning
+"GPR[rs1]"| First source register
+"GPR[rs2]"| Second source register
+"GPR[rd]"| Destination register
+"IMM"| Immediate value encoded in the instruction
+"XLEN"| Architectural scalar register width
+
+The following parameters remain open:
+
+- Total number of GPR registers.
+- Architectural scalar width (XLEN).
+- Physical register implementation.
+- Register renaming strategy.
+- Number of scalar execution pipelines.
+
+No physical register count or implementation requirement is frozen by this section.
+
+5.3 Arithmetic Instructions
+
+The arithmetic instruction family performs integer calculations.
+
+Mnemonic| Operation| Description
+"ADD"| "rd = rs1 + rs2"| Integer addition
+"ADDI"| "rd = rs1 + IMM"| Addition with immediate
+"SUB"| "rd = rs1 - rs2"| Integer subtraction
+"MUL"| "rd = rs1 × rs2"| Low XLEN bits of multiplication
+"MULH"| High half of signed multiplication| Signed high-product extraction
+"MULHU"| High half of unsigned multiplication| Unsigned high-product extraction
+"MULHSU"| High half of signed × unsigned multiplication| Mixed-sign high-product extraction
+"NEG"| "rd = 0 - rs1"| Two's-complement negation
+
+5.3.1 Arithmetic Semantics
+
+Integer arithmetic uses two's-complement representation for signed interpretation.
+
+Unless an instruction explicitly specifies otherwise:
+
+- Arithmetic results are XLEN bits wide.
+- Addition and subtraction retain the low XLEN bits.
+- Integer overflow wraps modulo (2^{XLEN}).
+- Signedness affects interpretation and comparison, not the underlying register bit pattern.
+- Arithmetic overflow does not automatically generate an exception.
+
+The "MUL" instruction returns the low XLEN bits of the mathematical product.
+
+The high-product instructions return the upper XLEN bits of the corresponding 2×XLEN-bit product.
+
+5.4 Logical Instructions
+
+Logical operations work independently on each bit position.
+
+Mnemonic| Operation| Description
+"AND"| "rd = rs1 AND rs2"| Bitwise AND
+"ANDI"| "rd = rs1 AND IMM"| AND with immediate
+"OR"| "rd = rs1 OR rs2"| Bitwise OR
+"ORI"| "rd = rs1 OR IMM"| OR with immediate
+"XOR"| "rd = rs1 XOR rs2"| Bitwise XOR
+"XORI"| "rd = rs1 XOR IMM"| XOR with immediate
+"NOT"| "rd = NOT rs1"| Bitwise inversion
+
+Logical operations do not modify architectural arithmetic flags.
+
+5.5 Shift Instructions
+
+The SCALAR domain supports logical and arithmetic shifts.
+
+Mnemonic| Operation| Description
+"SLL"| "rd = rs1 << shamt"| Logical left shift
+"SRL"| "rd = rs1 >> shamt"| Logical right shift
+"SRA"| Arithmetic right shift| Preserves the sign bit
+"SLLI"| Left shift by immediate| Immediate shift amount
+"SRLI"| Logical right shift by immediate| Immediate shift amount
+"SRAI"| Arithmetic right shift by immediate| Immediate shift amount
+
+5.5.1 Shift Semantics
+
+- Logical left shifts introduce zero bits from the right.
+- Logical right shifts introduce zero bits from the left.
+- Arithmetic right shifts replicate the original sign bit.
+- Shift operations produce XLEN-bit results.
+- The effective shift amount must be interpreted consistently across register and immediate forms.
+
+Proposed rule: the effective shift amount is reduced modulo XLEN.
+
+This rule remains subject to verification against the final instruction encoding and decoder design.
+
+5.6 Comparison Instructions
+
+Comparison operations return a scalar Boolean result.
+
+The proposed representation is:
+
+- "0" = false.
+- "1" = true.
+- All other result bits are zero.
+
+Mnemonic| Operation| Description
+"SLT"| "rd = signed(rs1) < signed(rs2)"| Signed less-than
+"SLTU"| "rd = unsigned(rs1) < unsigned(rs2)"| Unsigned less-than
+"SLTI"| "rd = signed(rs1) < signed(IMM)"| Signed immediate comparison
+"SLTIU"| "rd = unsigned(rs1) < unsigned(IMM)"| Unsigned immediate comparison
+"SEQ"| "rd = (rs1 == rs2)"| Equality
+"SNE"| "rd = (rs1 != rs2)"| Inequality
+"SGT"| "rd = signed(rs1) > signed(rs2)"| Signed greater-than
+"SGTU"| "rd = unsigned(rs1) > unsigned(rs2)"| Unsigned greater-than
+
+Comparison instructions do not require a global condition-code register.
+
+Their Boolean results can be consumed by subsequent scalar instructions or used to prepare decisions for the CONTROL and AGENT domains.
+
+5.7 Data Movement Instructions
+
+The scalar register interface provides explicit data movement operations.
+
+Mnemonic| Operation| Description
+"MOV"| "rd = rs1"| Register copy
+"MOVI"| "rd = IMM"| Immediate-value load
+"SEXT"| Sign-extend source| Signed extension
+"ZEXT"| Zero-extend source| Unsigned extension
+
+The exact immediate widths and extension source widths depend on the final instruction formats.
+
+"SEXT" and "ZEXT" must explicitly identify the source width in their final encoding or instruction semantics.
+
+No assumption is made here about a permanently reserved zero register.
+
+5.8 Immediate Encoding and Extension
+
+Immediate values allow scalar instructions to operate without requiring a second source register.
+
+The ISA proposes support for:
+
+- Signed immediates.
+- Unsigned immediates.
+- Shift immediates.
+- Constant-generation immediates.
+- Extended immediate formats where required.
+
+The instruction definition must specify whether each immediate is sign-extended or zero-extended.
+
+Immediate width, bit placement and extension format remain pending finalization of Section 3.
+
+5.9 Scalar Execution Semantics
+
+Scalar instructions follow these general rules:
+
+1. Source operands are read from the architectural scalar register state.
+2. The operation is performed by the scalar execution domain.
+3. The result is written to the destination register when execution completes.
+4. Instructions must preserve architectural state according to the defined exception and completion rules.
+5. Operations with invalid encodings must not execute as valid instructions.
+6. Scalar instructions must not silently modify unrelated architectural registers.
+
+The implementation may use pipelining, forwarding, out-of-order execution or register renaming, provided that architectural behavior remains correct.
+
+5.10 Interaction with Other Execution Domains
+
+The SCALAR domain is not intended to operate in isolation.
+
+It provides support to other N300 execution domains:
+
+Domain| Scalar contribution
+VECTOR| Loop control, indices and vector-length preparation
+TENSOR| Dimensions, offsets and operation parameters
+MEMORY| Address calculations and memory-operation parameters
+AGENT| Agent identifiers, state values and decision parameters
+CONCURRENT| Task identifiers, dependency values and synchronization parameters
+CONTROL| Conditional decisions and control-flow preparation
+
+Scalar instructions must not replace specialized VECTOR or TENSOR execution when those domains offer a more efficient implementation.
+
+5.11 Exceptions and Reserved Behavior
+
+The following cases require explicit handling in the final architecture:
+
+- Invalid instruction encoding.
+- Unsupported instruction modifiers.
+- Illegal register references.
+- Invalid immediate formats.
+- Unsupported execution modes.
+
+Integer overflow follows the modular arithmetic behavior defined in Section 5.3 unless a future instruction explicitly defines a different behavior.
+
+Division and remainder instructions are intentionally deferred. Their latency, division-by-zero behavior, signed overflow behavior and implementation cost must be evaluated before inclusion in the mandatory scalar instruction set.
+
+5.12 Performance and Implementation Objectives
+
+The SCALAR execution domain should prioritize:
+
+- Low-latency integer arithmetic.
+- Efficient address generation.
+- High-throughput logical operations.
+- Fast branch-decision preparation.
+- Efficient interaction with vector and tensor engines.
+- Minimal interference with specialized AI compute pipelines.
+
+The ISA does not mandate a specific number of scalar ALUs or pipeline stages.
+
+Those decisions belong to the microarchitecture and physical implementation specifications.
+
+5.13 Open Architectural Decisions
+
+The following items remain open and must be resolved before freezing this section:
+
+1. Final XLEN: 32, 64 or another architectural width.
+2. Number of architectural GPR registers.
+3. Immediate widths and encoding formats.
+4. Whether division and remainder are mandatory or optional.
+5. Whether additional bit-manipulation instructions are required.
+6. Whether population count and leading/trailing-zero operations belong in the base ISA.
+7. Whether scalar predicate generation needs dedicated instructions.
+8. Final instruction latency and throughput targets.
+
+5.14 Section 5 Acceptance Criteria
+
+Section 5 can only be frozen after:
+
+- GPR count and XLEN are defined.
+- Immediate formats are aligned with Section 3.
+- All instruction semantics are unambiguous.
+- Decoder behavior is specified.
+- A scalar golden emulator exists.
+- Directed and randomized instruction tests pass.
+- RTL implementation matches the architectural reference model.
+- Compiler and assembler mappings are defined.
+
+Current status: DRAFT / PROPOSED — NOT FROZEN.
+
+No opcode assignments are authorized by this section.
+
+---
+
+End of Section 5 — SCALAR Instructions
 
 
 
@@ -875,4 +1141,7 @@ The N300 Golden Emulator will serve as the executable architectural reference.
 ---
 
 END OF SECTIONS 1 AND 2
+
+
+
 
