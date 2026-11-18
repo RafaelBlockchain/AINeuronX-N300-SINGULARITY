@@ -1944,5 +1944,688 @@ No opcode assignments are authorized by this section.
 
 End of Section 7 — TENSOR Instructions
 
+Section 8 — MEMORY Instructions
 
+Architecture: AINeuronX N300-SINGULARITY
+Document: N300_ISA_SPECIFICATION.md
+Version: 0.2 DRAFT
+Status: PROPOSED — NOT FROZEN
+ISA Family: MEMORY
 
+---
+
+8.1 Purpose
+
+The MEMORY instruction family defines how N300 compute engines access, transfer, synchronize, and manage data across the memory hierarchy.
+
+The architecture must prevent memory bandwidth and data movement from becoming bottlenecks for matrix, vector, attention, sparse, and agent workloads.
+
+The memory architecture is designed to support:
+
+- Low-latency local SRAM access.
+- High-bandwidth shared memory.
+- External DDR and HBM memory.
+- Distributed memory across multiple compute tiles.
+- Asynchronous DMA transfers.
+- Multidimensional tensor data movement.
+- Prefetch and double buffering.
+- Explicit synchronization and memory ordering.
+- Atomic operations and concurrent execution.
+- Memory protection and isolation.
+
+The ISA defines architectural behavior. Physical memory organization, cache sizes, port counts, and implementation details remain microarchitectural decisions.
+
+8.2 Memory Hierarchy
+
+N300 proposes a hybrid memory hierarchy.
+
+Level| Memory type| Architectural purpose
+L0| Registers| Immediate operand storage
+L1| Local SRAM| Low-latency tile-local data
+L2| Shared SRAM| Shared working data across compute engines
+L3| External DDR/HBM| Large-capacity high-bandwidth memory
+L4| Distributed memory| Data across multiple tiles, chiplets, or nodes
+
+These labels describe logical memory levels. They do not mandate a particular cache architecture or physical implementation.
+
+8.2.1 L0 — Register Storage
+
+Register storage includes:
+
+- Scalar registers.
+- Vector registers.
+- Predicate registers.
+- Tensor accumulator registers.
+- Architectural control and status registers.
+
+Register accesses are governed by their respective instruction families.
+
+8.2.2 L1 — Local SRAM
+
+Local SRAM provides fast storage close to compute engines.
+
+Primary uses:
+
+- Matrix operand staging.
+- Vector working sets.
+- Attention blocks.
+- KV cache tiles.
+- Sparse metadata.
+- Intermediate tensor results.
+
+The ISA must allow explicit data movement into and out of local SRAM.
+
+8.2.3 L2 — Shared SRAM
+
+Shared SRAM provides a larger working area accessible to multiple compute engines or execution contexts, subject to access permissions.
+
+Primary uses:
+
+- Shared tensor blocks.
+- Inter-engine communication.
+- Intermediate computation results.
+- Synchronization buffers.
+- Shared agent data.
+
+The implementation may use banks, multiple ports, arbitration, and hardware-managed allocation.
+
+8.2.4 L3 — External Memory
+
+External memory supports large working sets through DDR or HBM interfaces.
+
+Primary uses:
+
+- Model weights.
+- Large tensors.
+- Training datasets.
+- Activations.
+- KV cache backing storage.
+- Checkpoints and persistent computation state.
+
+The ISA must support efficient transfers between external memory and on-chip storage.
+
+8.2.5 L4 — Distributed Memory
+
+Distributed memory extends the memory model across compute tiles, chiplets, and potentially multiple N300 devices.
+
+Primary uses:
+
+- Distributed tensor operations.
+- Multi-device inference.
+- Model parallelism.
+- Expert parallelism.
+- Collective communication.
+- Distributed KV cache management.
+
+Remote access latency and consistency requirements must be explicitly represented in the architecture.
+
+---
+
+8.3 Address Spaces
+
+The N300 memory model proposes logically distinct address spaces:
+
+- "GLOBAL": externally accessible system memory.
+- "LOCAL": tile-local SRAM.
+- "SHARED": shared on-chip memory.
+- "DISTRIBUTED": memory accessible through distributed compute infrastructure.
+- "PRIVATE": execution-context-private memory.
+- "IO": memory-mapped device and peripheral regions.
+
+These address spaces are logical classifications. Their actual physical mappings are implementation-defined.
+
+Each memory access must respect:
+
+- Address validity.
+- Access permissions.
+- Alignment requirements.
+- Memory-region attributes.
+- Execution-context isolation.
+- Security boundaries.
+
+The ISA must provide a consistent mechanism for translating or resolving architectural addresses into physical memory locations.
+
+---
+
+8.4 Memory Instruction Categories
+
+The MEMORY instruction family is divided into the following groups:
+
+1. Scalar memory access.
+2. Vector memory access.
+3. Tensor memory access.
+4. DMA and asynchronous transfers.
+5. Prefetch and data movement.
+6. Memory synchronization and ordering.
+7. Atomic operations.
+8. Memory protection and control.
+9. Distributed memory operations.
+10. KV cache and specialized memory management.
+
+No final opcode assignments are defined in this draft.
+
+---
+
+8.5 Scalar Memory Instructions
+
+Proposed scalar operations:
+
+Instruction| Purpose
+"LD"| Load scalar data
+"ST"| Store scalar data
+"LD8"| Load 8-bit value
+"LD16"| Load 16-bit value
+"LD32"| Load 32-bit value
+"LD64"| Load 64-bit value
+"LD_SIGNED"| Load with sign extension
+"LD_UNSIGNED"| Load with zero extension
+"ST8"| Store 8-bit value
+"ST16"| Store 16-bit value
+"ST32"| Store 32-bit value
+"ST64"| Store 64-bit value
+
+The final set of widths must be aligned with the frozen scalar register width and supported data types.
+
+8.5.1 Scalar Access Requirements
+
+Scalar loads and stores must define:
+
+- Effective address calculation.
+- Alignment behavior.
+- Access width.
+- Signed or unsigned interpretation.
+- Memory permissions.
+- Fault reporting.
+- Ordering behavior.
+
+Unaligned accesses must have explicitly defined architectural behavior. Their implementation may require multiple physical transactions.
+
+---
+
+8.6 Vector Memory Instructions
+
+Vector memory operations provide efficient access to vector data.
+
+Proposed instructions:
+
+Instruction| Purpose
+"VLOAD"| Load vector elements
+"VSTORE"| Store vector elements
+"VLOAD_MASKED"| Load selected elements
+"VSTORE_MASKED"| Store selected elements
+"VGATHER"| Gather elements using indices
+"VSCATTER"| Scatter elements using indices
+"VLOAD_STRIDED"| Load using a configurable stride
+"VSTORE_STRIDED"| Store using a configurable stride
+"VPREFETCH"| Request vector data prefetch
+
+Vector memory operations must support the architectural vector configuration defined in Section 6.
+
+The execution model must define:
+
+- Active vector length.
+- Element width.
+- Mask behavior.
+- Stride interpretation.
+- Address generation.
+- Partial completion.
+- Fault handling.
+
+Masked-off elements must not perform architecturally visible memory accesses unless explicitly specified by a future instruction definition.
+
+---
+
+8.7 Tensor Memory Instructions
+
+Tensor memory operations support multidimensional data access and efficient movement of tensor blocks.
+
+Proposed instructions:
+
+Instruction| Purpose
+"TLOAD"| Load tensor data
+"TSTORE"| Store tensor data
+"TLOAD_TILE"| Load a tensor tile
+"TSTORE_TILE"| Store a tensor tile
+"TLOAD_BLOCK"| Load a multidimensional block
+"TSTORE_BLOCK"| Store a multidimensional block
+"TLOAD_TRANSPOSE"| Load with transpose transformation
+"TSTORE_TRANSPOSE"| Store with transpose transformation
+"TLOAD_STRIDED"| Load using multidimensional strides
+"TSTORE_STRIDED"| Store using multidimensional strides
+
+8.7.1 Tensor Descriptor
+
+A tensor memory descriptor may contain:
+
+- Base address.
+- Data type.
+- Dimensions.
+- Element size.
+- Strides.
+- Tile dimensions.
+- Memory address space.
+- Layout information.
+- Access permissions.
+- Optional boundary and padding metadata.
+
+The final descriptor format remains open.
+
+8.7.2 Tensor Layout Support
+
+The architecture should support:
+
+- Row-major layouts.
+- Column-major layouts.
+- Blocked layouts.
+- Tiled layouts.
+- Strided layouts.
+- Specialized layouts for attention and matrix computation.
+
+Hardware may support additional optimized physical layouts without exposing them as separate architectural data types.
+
+---
+
+8.8 DMA Instructions
+
+Direct Memory Access is a fundamental component of N300.
+
+DMA must enable data transfers independently of the main compute execution path, allowing computation and data movement to overlap.
+
+Proposed instructions:
+
+Instruction| Purpose
+"DMA_CONFIG"| Configure a DMA operation
+"DMA_LOAD"| Transfer data into local memory
+"DMA_STORE"| Transfer data to another memory level
+"DMA_COPY"| Copy data between supported memory regions
+"DMA_2D"| Perform two-dimensional transfer
+"DMA_3D"| Perform three-dimensional transfer
+"DMA_START"| Start an asynchronous transfer
+"DMA_WAIT"| Wait for transfer completion
+"DMA_STATUS"| Read transfer status
+"DMA_CANCEL"| Request cancellation where supported
+
+8.8.1 DMA Descriptor
+
+A DMA descriptor may include:
+
+- Source address.
+- Destination address.
+- Transfer size.
+- Element size.
+- Number of dimensions.
+- Source strides.
+- Destination strides.
+- Tile dimensions.
+- Transfer direction.
+- Completion identifier.
+- Priority.
+- Optional security and protection attributes.
+
+The descriptor layout and maximum transfer dimensions are not frozen.
+
+8.8.2 Asynchronous DMA
+
+DMA operations should support asynchronous execution.
+
+The expected sequence is:
+
+1. Configure the transfer.
+2. Submit the DMA request.
+3. Continue independent computation.
+4. Check or wait for completion.
+5. Consume the transferred data after the required synchronization.
+
+The ISA must prevent consumers from observing incomplete transfer results.
+
+8.8.3 DMA and Compute Overlap
+
+N300 must support overlapping:
+
+- DMA input transfers.
+- Matrix computation.
+- Vector computation.
+- DMA output transfers.
+
+The microarchitecture should provide multiple independent execution resources where necessary.
+
+The goal is to minimize idle compute cycles caused by memory movement.
+
+8.8.4 Double Buffering
+
+The architecture must support software-controlled or hardware-assisted double buffering.
+
+A typical execution sequence:
+
+- Buffer A is consumed by the compute engine.
+- Buffer B receives the next data block through DMA.
+- The buffers exchange roles after synchronization.
+- The process continues while data and computation remain available.
+
+The implementation may support deeper buffering beyond two buffers.
+
+---
+
+8.9 Prefetch Instructions
+
+Prefetch operations request data movement before the corresponding computation requires the data.
+
+Proposed instructions:
+
+Instruction| Purpose
+"PREFETCH"| Request data prefetch
+"PREFETCH_L1"| Request local SRAM prefetch
+"PREFETCH_L2"| Request shared-memory prefetch
+"PREFETCH_TENSOR"| Request tensor-block prefetch
+"PREFETCH_KV"| Request KV cache data prefetch
+
+Prefetch instructions are advisory unless a future specification explicitly defines stronger completion guarantees.
+
+A prefetch request must not silently override memory protection or access permissions.
+
+The implementation may ignore prefetch requests when resources are unavailable.
+
+---
+
+8.10 Memory Synchronization and Ordering
+
+N300 supports concurrent execution across multiple compute engines and agent contexts.
+
+Memory synchronization must therefore be explicitly defined.
+
+Proposed instructions:
+
+Instruction| Purpose
+"MEM_FENCE"| Enforce a memory ordering boundary
+"LOAD_FENCE"| Order memory load operations
+"STORE_FENCE"| Order memory store operations
+"DMA_FENCE"| Synchronize relevant DMA operations
+"MEM_SYNC"| Synchronize memory operations
+"MEM_WAIT"| Wait for a memory event or completion
+"MEM_BARRIER"| Coordinate participating execution contexts
+
+8.10.1 Memory Ordering Model
+
+The architecture must define a formal memory consistency model.
+
+The model must specify:
+
+- Ordering of loads and stores.
+- Visibility of writes across execution contexts.
+- Ordering of DMA operations relative to compute operations.
+- Synchronization between local and shared memory.
+- Ordering of distributed memory transactions.
+- Atomic operation visibility.
+
+A weakly ordered model with explicit synchronization is a possible implementation direction, but the final architectural contract must be established before the ISA is frozen.
+
+8.10.2 Barrier Semantics
+
+Barriers must define:
+
+- Participating execution contexts.
+- Barrier identity.
+- Arrival conditions.
+- Completion conditions.
+- Timeout or failure behavior, if supported.
+
+A barrier must not be assumed to synchronize unrelated execution contexts unless explicitly configured.
+
+---
+
+8.11 Atomic Memory Instructions
+
+Atomic operations enable safe concurrent updates to shared data.
+
+Proposed instructions:
+
+Instruction| Purpose
+"AMO_ADD"| Atomic addition
+"AMO_SUB"| Atomic subtraction
+"AMO_AND"| Atomic AND
+"AMO_OR"| Atomic OR
+"AMO_XOR"| Atomic XOR
+"AMO_SWAP"| Atomic exchange
+"AMO_MIN"| Atomic minimum
+"AMO_MAX"| Atomic maximum
+"CAS"| Compare-and-swap
+"FETCH_ADD"| Atomic fetch and add
+
+The architecture must define supported atomic widths, alignment, ordering modes, and memory regions.
+
+Atomic operations must be compatible with the concurrency model and must not violate execution-context isolation.
+
+Support for distributed atomics remains an open architectural decision.
+
+---
+
+8.12 Distributed Memory Instructions
+
+Distributed memory operations enable communication between tiles, chiplets, and supported N300 devices.
+
+Proposed instructions:
+
+Instruction| Purpose
+"DMEM_LOAD"| Read distributed memory
+"DMEM_STORE"| Write distributed memory
+"DMEM_COPY"| Transfer data between distributed regions
+"DMEM_PREFETCH"| Request remote data
+"DMEM_SEND"| Send data to a remote execution domain
+"DMEM_RECV"| Receive data from a remote execution domain
+"DMEM_SYNC"| Synchronize distributed memory activity
+"DMEM_WAIT"| Wait for distributed operation completion
+
+Distributed operations must define:
+
+- Destination identity.
+- Remote address.
+- Transfer size.
+- Completion semantics.
+- Error handling.
+- Security and access permissions.
+- Ordering guarantees.
+
+The ISA must not assume that remote memory has the same latency or consistency properties as local SRAM.
+
+8.12.1 Multi-Device Support
+
+The architecture should support future multi-device configurations through a defined communication and memory-access abstraction.
+
+Physical interconnects and transport protocols remain implementation-specific.
+
+---
+
+8.13 KV Cache Memory Instructions
+
+Attention workloads require efficient management of large key-value caches.
+
+N300 proposes specialized architectural operations to support KV cache allocation, movement, and access.
+
+Proposed instructions:
+
+Instruction| Purpose
+"KV_ALLOC"| Allocate KV cache storage
+"KV_FREE"| Release KV cache storage
+"KV_LOAD"| Load KV cache data
+"KV_STORE"| Store KV cache data
+"KV_APPEND"| Append new key/value entries
+"KV_GATHER"| Gather selected cache entries
+"KV_PREFETCH"| Request cache prefetch
+"KV_COMPACT"| Compact cache storage
+"KV_SYNC"| Synchronize KV cache operations
+
+The architectural model should support:
+
+- Variable sequence lengths.
+- Multiple attention heads.
+- Grouped-query attention.
+- Multi-query attention.
+- Multi-head latent attention.
+- Paged or block-based cache organizations.
+- Cache sharing where permitted.
+- Isolation between independent execution contexts.
+
+The final KV cache representation is a microarchitectural and runtime decision.
+
+These instructions are proposed architectural operations, not evidence that a dedicated KV cache engine has already been implemented.
+
+---
+
+8.14 Memory Protection and Security
+
+Memory operations must respect the N300 security architecture.
+
+The ISA must provide mechanisms to enforce:
+
+- Execution-context isolation.
+- Address-space permissions.
+- Read/write restrictions.
+- DMA access protection.
+- Distributed-memory access control.
+- Secure memory regions.
+- Fault detection and reporting.
+
+A DMA engine must not be allowed to bypass the access permissions of its execution context.
+
+Memory protection must remain effective across asynchronous operations and context switches.
+
+The implementation should integrate with the N300 security architecture, including its Root of Trust and secure execution mechanisms.
+
+---
+
+8.15 Memory Faults and Exceptions
+
+Memory operations must define deterministic architectural fault behavior.
+
+Potential fault categories include:
+
+- Invalid address.
+- Address misalignment.
+- Permission violation.
+- Unmapped memory region.
+- DMA transfer failure.
+- Distributed access failure.
+- Memory integrity error.
+- ECC-detected error.
+- Descriptor validation failure.
+- Unsupported memory operation.
+
+The architecture must define:
+
+- Fault identification.
+- Fault reporting.
+- Destination register behavior.
+- Partial transfer behavior.
+- Completion status.
+- Recovery or termination rules.
+
+The exact exception encoding and recovery mechanisms remain open.
+
+---
+
+8.16 Performance Requirements
+
+The MEMORY instruction family must enable the following architectural capabilities:
+
+1. Independent DMA and compute execution.
+2. Multidimensional data transfers.
+3. Efficient tensor tile movement.
+4. Local SRAM utilization.
+5. Shared-memory communication.
+6. Asynchronous prefetch.
+7. Double and multi-buffering.
+8. Memory synchronization.
+9. Distributed data movement.
+10. KV cache management.
+
+Performance targets must be measured at the microarchitectural level.
+
+The ISA alone does not guarantee bandwidth, latency, occupancy, or throughput.
+
+N300 performance evaluation must include:
+
+- Sustained memory bandwidth.
+- Effective bandwidth under concurrent workloads.
+- DMA throughput.
+- DMA/compute overlap.
+- Local SRAM utilization.
+- Memory access latency.
+- Bank conflict behavior.
+- NoC congestion.
+- Distributed transfer overhead.
+- Compute-engine stall cycles caused by memory dependencies.
+
+---
+
+8.17 Compiler and Runtime Integration
+
+The N300 compiler and runtime must translate high-level memory operations into legal ISA sequences.
+
+Required software components include:
+
+- Memory layout analysis.
+- Address-space management.
+- Tensor descriptor generation.
+- DMA scheduling.
+- Automatic prefetch insertion.
+- Double-buffer management.
+- Memory dependency analysis.
+- Synchronization insertion.
+- Memory allocation and lifetime tracking.
+- Distributed placement.
+- KV cache allocation and scheduling.
+
+NANO IR should represent memory dependencies and transfer operations explicitly.
+
+The compiler must not remove or reorder memory operations in ways that violate the architectural memory consistency model.
+
+The runtime must validate descriptors and enforce resource and security constraints.
+
+---
+
+8.18 Open Architectural Decisions
+
+The following decisions remain open:
+
+Decision| Current status
+Physical SRAM capacity| Not frozen
+SRAM banking and port configuration| Not frozen
+DDR/HBM interface configuration| Not frozen
+Cache architecture| Not frozen
+Address width| Not frozen
+Address-space encoding| Not frozen
+Memory consistency model| Not frozen
+Atomic operation widths| Not frozen
+DMA descriptor format| Not frozen
+Maximum DMA dimensions| Not frozen
+DMA queue architecture| Not frozen
+Number of DMA engines| Not frozen
+Prefetch behavior| Not frozen
+Distributed memory protocol| Not frozen
+Distributed atomic support| Not frozen
+KV cache physical organization| Not frozen
+ECC implementation| Not frozen
+Fault and recovery semantics| Not frozen
+
+These decisions must be resolved through architecture analysis, simulation, performance modeling, and implementation validation.
+
+---
+
+8.19 Acceptance Criteria
+
+The MEMORY instruction family cannot be considered architecturally complete until:
+
+1. All scalar memory operations have defined semantics.
+2. Vector memory behavior is consistent with Section 6.
+3. Tensor memory behavior is consistent with Section 7.
+4. Address-space rules are documented.
+5. DMA descriptor semantics are specified.
+6. Asynchronous completion behavior is deterministic.
+7. DMA/compute synchronization is formally defined.
+8. Memory ordering rules are documented.
+9. Atomic operations have defined semantics.
+10. Memory protection applies to all supported access paths.
+11. Memory faults have defined architectural behavior.
+12. Distributed-memory operations have defined completion and error semantics.
+13. The Golden Emulator implements the supported architectural behavior.
+14. The compiler and runtime can generate and execute valid memory operations.
