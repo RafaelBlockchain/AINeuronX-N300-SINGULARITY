@@ -559,6 +559,301 @@ No binary encoding is frozen by this document.
 END OF SECTION 3
 
 
+# 4. ARCHITECTURAL STATE AND REGISTER MODEL
+
+## 4.1 Architectural State
+
+The N300 architectural state defines the processor-visible information required to execute instructions and maintain execution contexts.
+
+The architectural state includes:
+
+- Program Counter.
+- General-Purpose Registers.
+- Vector Registers.
+- Predicate Registers.
+- Architectural Status Registers.
+- Control and Configuration Registers.
+- Agent Context State.
+- Exception State.
+
+The architectural state must be independently maintained wherever execution isolation requires it.
+
+## 4.2 Program Counter (PC)
+
+The Program Counter identifies the architectural instruction address associated with an execution context.
+
+The PC must support:
+
+- Sequential instruction execution.
+- Conditional control flow.
+- Unconditional branches.
+- Function and procedure calls, where supported.
+- Exception entry and return.
+- Defined instruction-extension boundaries.
+
+The PC address width, alignment requirements, privilege behavior, and address translation rules remain OPEN.
+
+## 4.3 General-Purpose Registers (GPR)
+
+N300 defines a General-Purpose Register class for scalar computation and architectural control operations.
+
+GPRs are intended to support:
+
+- Integer arithmetic.
+- Logical operations.
+- Address generation.
+- Loop control.
+- Index calculations.
+- Descriptor references.
+- Agent and runtime parameters.
+
+The following details remain OPEN:
+
+- Number of GPRs.
+- Register width.
+- Register encoding.
+- Reserved register conventions.
+- Zero-register behavior.
+- Calling convention.
+- Context-switch behavior.
+
+The final GPR organization must be evaluated against compiler requirements and instruction encoding efficiency.
+
+## 4.4 Vector Register File (VRF)
+
+The proposed N300 vector register architecture contains:
+
+- 32 architectural vector registers.
+- Register identifiers V0 through V31.
+- 512 bits per architectural vector register.
+- Independent logical register state per execution context.
+
+The proposed logical capacity is:
+
+32 × 512 bits = 16,384 bits.
+
+This corresponds to 2,048 bytes (2 KiB) of vector register state per context.
+
+This is an architectural capacity proposal, not a commitment to a specific physical register-file implementation.
+
+## 4.5 Vector Register Semantics
+
+Vector registers support operations involving multiple data elements.
+
+The interpretation of a vector register depends on the active instruction and its element format.
+
+Supported candidate formats include:
+
+- FP32.
+- BF16.
+- FP16.
+- FP8 E4M3.
+- FP8 E5M2.
+- FP6.
+- FP4.
+- INT8.
+- INT4.
+- INT2.
+
+Ternary representations are under evaluation as a specialized extension.
+
+The number of logical elements available in a 512-bit register depends on the selected element width.
+
+Instruction-specific rules must define:
+
+- Element interpretation.
+- Active lanes.
+- Masking behavior.
+- Lane ordering.
+- Result placement.
+- Inactive-lane behavior.
+
+No universal lane interpretation is assumed for all instructions.
+
+## 4.6 Vector Register Access
+
+The initial VRF implementation target proposes:
+
+- Two logical read ports.
+- One logical write port.
+
+This is a preliminary microarchitectural target.
+
+It does not define a mandatory physical implementation.
+
+Banking, replication, bypass networks, multi-cycle access, and arbitration may be used if architectural behavior remains compliant.
+
+The design must evaluate register-file area, timing, power, and execution-unit demand.
+
+## 4.7 Predicate Registers
+
+Predicate state supports conditional execution and vector lane selection.
+
+Predicate registers may be used for:
+
+- Conditional scalar operations.
+- Vector masking.
+- Select operations.
+- Conditional updates.
+- Control-flow decisions.
+
+The following remain OPEN:
+
+- Number of predicate registers.
+- Predicate width.
+- Predicate encoding.
+- Mask granularity.
+- Inactive-lane semantics.
+- Predicate update rules.
+
+Every instruction using predicate state must define its exact behavior.
+
+## 4.8 Architectural Status Registers
+
+N300 may define status registers for architectural execution conditions.
+
+Candidate status information includes:
+
+- Arithmetic condition state.
+- Comparison results.
+- Execution mode.
+- Exception state.
+- Instruction completion state.
+- Synchronization status.
+
+The final status-register organization remains OPEN.
+
+Status updates must be explicitly specified for every instruction that modifies architectural status.
+
+## 4.9 Control and Configuration Registers
+
+Control and configuration registers provide access to architectural execution settings.
+
+Candidate categories include:
+
+- ISA capability information.
+- Enabled architectural extensions.
+- Execution configuration.
+- Memory configuration.
+- Agent configuration.
+- Performance monitoring controls.
+- Exception configuration.
+- Privilege and protection controls.
+
+The exact register map, access permissions, reset values, and read/write behavior must be formally specified before implementation freeze.
+
+## 4.10 Agent Context State
+
+Each independently protected agent context must maintain the architectural state required for its execution.
+
+The proposed context state includes:
+
+- Agent identifier.
+- Program Counter.
+- General-Purpose Registers.
+- Vector Registers.
+- Predicate Registers.
+- Architectural Status.
+- Control State.
+- Memory Permissions.
+- Execution State.
+- Exception State.
+- Synchronization State.
+- Work Ownership Information.
+
+Context switching must preserve all architecturally required state.
+
+An implementation may use physical registers, register renaming, memory-backed context storage, or other mechanisms.
+
+The physical implementation must preserve architectural isolation and correctness.
+
+## 4.11 Context Isolation
+
+Architectural state belonging to one protected agent must not become directly accessible to another agent without explicit authorization.
+
+Isolation requirements apply to:
+
+- Register state.
+- Memory permissions.
+- Work descriptors.
+- DMA operations.
+- Synchronization resources.
+- Exception information.
+
+Context transitions must prevent unauthorized state exposure.
+
+## 4.12 Register Reset and Initialization
+
+The architecture must define reset and initialization behavior for all architectural state.
+
+The following must be specified:
+
+- Initial Program Counter.
+- Initial register state.
+- Predicate initialization.
+- Status initialization.
+- Agent context initialization.
+- Exception initialization.
+- Privileged configuration initialization.
+
+No software-visible register value may be assumed to have a particular reset value unless explicitly defined by the ISA or platform specification.
+
+## 4.13 Register State and Exceptions
+
+Exceptions must preserve sufficient architectural information to support diagnosis and recovery.
+
+The architecture must define:
+
+- Faulting instruction address.
+- Exception cause.
+- Relevant operand or memory information.
+- Context identity.
+- Restartability.
+- State preservation.
+- Exception return behavior.
+
+The exact exception register layout remains OPEN.
+
+## 4.14 Register Model Validation
+
+Before architectural freeze, the project must demonstrate:
+
+1. Complete architectural register definitions.
+2. Unambiguous register access semantics.
+3. Correct context isolation.
+4. Correct context save and restore.
+5. Defined reset behavior.
+6. Defined exception-state preservation.
+7. Compiler register-allocation compatibility.
+8. Golden Emulator register-state agreement.
+
+## 4.15 Open Register Decisions
+
+The following decisions remain OPEN:
+
+- GPR count and width.
+- Predicate register count and width.
+- Status register definitions.
+- Control register map.
+- PC width and alignment.
+- Vector lane ordering.
+- Vector masking semantics.
+- VRF physical organization.
+- VRF banking and access scheduling.
+- Context storage implementation.
+- Maximum resident contexts.
+- Reset values.
+- Exception register organization.
+
+The proposed 32 × 512-bit vector register architecture remains subject to implementation and verification.
+
+---
+
+END OF SECTION 4
+
+
+
+
 
 Error reporting must provide sufficient information for software recovery and debugging.
 
