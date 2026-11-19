@@ -2629,3 +2629,19 @@ The MEMORY instruction family cannot be considered architecturally complete unti
 12. Distributed-memory operations have defined completion and error semantics.
 13. The Golden Emulator implements the supported architectural behavior.
 14. The compiler and runtime can generate and execute valid memory operations.
+15. Verification tests cover normal, concurrent, fault, and boundary conditions.
+---
+8.20 Design Principle
+N300 must treat data movement as a first-class architectural capability.
+The objective is not simply to provide more memory bandwidth. It is to ensure that computation, memory access, communication, and synchronization operate as a coordinated system.
+The memory architecture must feed matrix, vector, attention, sparse, and agent execution engines without unnecessary stalls.
+N300 MEMORY is designed for sustained computation, not merely peak compute throughput.
+---
+End of Section 8 — MEMORY Instructions
+
+
+
+
+
+
+
